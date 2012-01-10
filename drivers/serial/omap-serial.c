@@ -42,6 +42,7 @@
 #include <plat/dmtimer.h>
 #include <plat/omap-serial.h>
 #include <plat/control.h>
+#include <plat/omap-pm.h>
 
 #include "../../arch/arm/mach-omap2/mux.h"
 
@@ -1175,7 +1176,11 @@ serial_omap_suspend(struct platform_device *pdev, pm_message_t state)
 	omap_up_info->uart_wakeup_event = 0;
 
 	if (up)
+	{
 		uart_suspend_port(&serial_omap_reg, &up->port);
+		omap_pm_set_min_bus_tput( &up->pdev->dev, 
+		OCP_INITIATOR_AGENT, 800000);
+	}
 
 	return 0;
 }
@@ -1191,8 +1196,11 @@ static int serial_omap_resume(struct platform_device *dev)
 		up->plat_hold_wakelock(up, WAKELK_RESUME);
 
 	if (up)
+	{
 		uart_resume_port(&serial_omap_reg, &up->port);
-
+		omap_pm_set_min_bus_tput( &up->pdev->dev, 
+		OCP_INITIATOR_AGENT, 0);
+	}
 	return 0;
 }
 

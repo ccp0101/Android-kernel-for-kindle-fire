@@ -16,7 +16,6 @@
 #include <linux/sysdev.h>
 #include <linux/power_supply.h>
 #include <linux/slab.h>
-#include <linux/i2c/twl.h>
 
 /*
  * I2C registers that need to be read
