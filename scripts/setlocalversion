@@ -30,6 +30,10 @@ fi
 
 scm_version()
 {
+	# ignore the rest of code, we only need a plus sign
+	echo "+"
+	return
+
 	local short
 	short=false
 
