@@ -1100,7 +1100,7 @@ enum omap_color_mode video_mode_to_dss_mode(struct v4l2_pix_format *pix,
 #endif
 		break;
 	case V4L2_PIX_FMT_BGR32:
-		mode = OMAP_DSS_COLOR_RGBX24;
+		mode = OMAP_DSS_COLOR_RGBX32;
 		break;
 	default:
 		mode = -EINVAL;
@@ -3136,11 +3136,11 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type i)
 
 #ifdef CONFIG_PM
 	if (pdata->set_min_bus_tput) {
-		if (cpu_is_omap3630()) {
+		if (cpu_is_omap3630() || cpu_is_omap44xx()) {
 			pdata->set_min_bus_tput(
 				((vout->vid_dev)->v4l2_dev).dev ,
 					OCP_INITIATOR_AGENT, 200 * 1000 * 4);
-		} else if (!cpu_is_omap44xx()) {
+		} else {
 			pdata->set_min_bus_tput(
 				((vout->vid_dev)->v4l2_dev).dev ,
 					OCP_INITIATOR_AGENT, 166 * 1000 * 4);

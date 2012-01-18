@@ -80,7 +80,6 @@ static struct {
 	enum dss_clk_source lcd2_clk_source;
 
 	bool mainclk_state;
-	spinlock_t mainclk_lock;
 
 	u32		ctx[DSS_SZ_REGS / sizeof(u32)];
 	struct omap_display_platform_data *pdata;
@@ -145,16 +144,6 @@ unsigned long dss_get_cache_req_pck()
 	return dss.cache_req_pck;
 }
 
-void dss_clk_lock()
-{
-	spin_lock(&dss.mainclk_lock);
-}
-
-void dss_clk_unlock()
-{
-	spin_unlock(&dss.mainclk_lock);
-}
-
 /*
  * OMAP4 does not allow aggressive DSS clock cutting, so we must keep the
  * clocks enabled during display use.  These next two methods on OMAP4
@@ -164,21 +153,21 @@ int dss_mainclk_enable()
 {
 	int ret = 0;
 
-	if (dss.mainclk_state) {
-		ret = -EBUSY;
-	} else {
-		spin_lock(&dss.mainclk_lock);
-		if (cpu_is_omap44xx() || cpu_is_omap34xx()) {
+	if (!dss.mainclk_state) {
+		if (cpu_is_omap44xx() || cpu_is_omap34xx())
 			ret = dss_opt_clock_enable();
-			if (ret)
-				dss_opt_clock_disable();
-		}
-		if (!ret)
-			dss.mainclk_state = true;
-		spin_unlock(&dss.mainclk_lock);
+
+		if (ret)
+			dss_opt_clock_disable();
+#ifdef CONFIG_PM_RUNTIME
+		else
+			ret = pm_runtime_get_sync(&dss.pdev->dev);
+#endif
 
 		if (!ret)
-			ret = pm_runtime_get_sync(&dss.pdev->dev);
+			dss.mainclk_state = true;
+	} else {
+		return -EBUSY;
 	}
 
 	return ret;
@@ -188,14 +177,11 @@ EXPORT_SYMBOL(dss_mainclk_enable);
 void dss_mainclk_disable()
 {
 	if (dss.mainclk_state) {
-		spin_lock(&dss.mainclk_lock);
 		dss.mainclk_state = false;
+		pm_runtime_put_sync(&dss.pdev->dev);
 
 		if (cpu_is_omap44xx() || cpu_is_omap34xx())
 			dss_opt_clock_disable();
-		spin_unlock(&dss.mainclk_lock);
-
-		pm_runtime_put_sync(&dss.pdev->dev);
 	}
 }
 EXPORT_SYMBOL(dss_mainclk_disable);
@@ -702,8 +688,6 @@ int dss_init(struct platform_device *pdev)
 	u32 rev;
 	struct resource *dss_mem;
 	bool skip_init = false;
-
-	spin_lock_init(&dss.mainclk_lock);
 
 	dss.pdata = pdev->dev.platform_data;
 	dss.pdev = pdev;
