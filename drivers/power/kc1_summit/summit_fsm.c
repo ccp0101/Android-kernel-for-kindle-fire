@@ -1,6 +1,7 @@
 #include "smb347.h"
 #include <plat/led.h>
 //#define DEBUG 1
+extern struct workqueue_struct    *summit_work_queue;
 void summit_init_fsm(struct summit_smb347_info *di)
 {
     di->current_state   = STATE_SUSPEND;
@@ -177,6 +178,7 @@ void summit_fsm_doAction(struct summit_smb347_info *di,int event)
                 power_supply_changed(&di->usb);
                 power_supply_changed(&di->ac);
                 summit_charge_reset(di);
+
 		/*
 		 * Turn off LEDs when USB is unplugged,
 		 * this is safe when the battery is already
@@ -221,11 +223,12 @@ void summit_fsm_doAction(struct summit_smb347_info *di,int event)
                         summit_write_config(di,0);                        
                         summit_config_apsd(di,0);
                         summit_config_apsd(di,1);
+                        queue_delayed_work_on(0,summit_work_queue,&di->summit_check_work,msecs_to_jiffies(2000));  
                     }else{//The detect has already done in u-boot
                         dev_info(di->dev,"The detect has already done in u-boot\n"); 
                         temp=summit_get_apsd_result(di);
                         writeIntoCBuffer(&di->events,temp);
-                        schedule_delayed_work(&di->summit_monitor_work,msecs_to_jiffies(1));
+                        queue_delayed_work_on(0,summit_work_queue,&di->summit_monitor_work,0);
                     }
                 }
                 summit_charger_reconfig(di);
@@ -242,7 +245,7 @@ void summit_fsm_doAction(struct summit_smb347_info *di,int event)
 
             if(event==EVENT_APSD_COMPLETE){
                 writeIntoCBuffer(&di->events,summit_get_apsd_result(di));
-                schedule_delayed_work(&di->summit_monitor_work,msecs_to_jiffies(1));         
+                queue_delayed_work_on(0,summit_work_queue,&di->summit_monitor_work,0);     
             }
         break;
         case STATE_ONDEMAND:

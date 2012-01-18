@@ -934,6 +934,9 @@ static int
 ilitek_i2c_resume(
 	struct i2c_client *client)
 {
+    int retry = 1;
+    struct irq_desc *desc = irq_to_desc(i2c.client->irq);
+
     i2c.is_suspend = 0;
     //Enable I2C2 internal pull high
     omap_writel(omap_readl(0x4a100604) & 0xFFEFFFEF,0x4a100604);
@@ -946,15 +949,20 @@ ilitek_i2c_resume(
     omap_writew(omap_readw(0x4a10017C) | 0x011B, 0x4a10017C);
     omap_writew(omap_readw(0x4a10017C) | 0x011B, 0x4a10017E);
 
-        if(i2c.valid_irq_request != 0){
-                //printk("%s %d enable_irq\n", __func__, __LINE__);
-                enable_irq(i2c.client->irq);
-                //printk(ILITEK_DEBUG_LEVEL "%s, enable i2c irq\n", __func__);
+    if(i2c.valid_irq_request != 0){
+        //printk("%s %d enable_irq\n", __func__, __LINE__);
+        enable_irq(i2c.client->irq);
+        //printk(ILITEK_DEBUG_LEVEL "%s, enable i2c irq\n", __func__);
+        while(desc->depth != 0 && retry <= 3) {
+            printk("%s re-enable irq! retry = %d\n", __func__, retry);
+            enable_irq(i2c.client->irq);
+            retry++;
         }
-	else{
-		i2c.stop_polling = 0;
-        	printk(ILITEK_DEBUG_LEVEL "%s, start i2c thread polling\n", __func__);
-	}
+    }
+    else{
+        i2c.stop_polling = 0;
+        printk(ILITEK_DEBUG_LEVEL "%s, start i2c thread polling\n", __func__);
+    }
 
 	return 0;
 }
